@@ -1,0 +1,13 @@
+[workspace]
+members = [
+  "crates/nova-types",
+  "crates/nova-event-bus",
+  "crates/nova-state",
+  "crates/nova-epistemic",
+  "crates/nova-glasswing",
+  "crates/nova-replay",
+  "crates/nova-evidence",
+  "crates/nova-provenance",
+  "crates/nova-runtime"
+]
+resolver = "2"
