@@ -2,29 +2,37 @@
 
 NOVA is a Rust-first epistemic execution runtime built around deterministic state, evidence, policy enforcement, and replayable outcomes.
 
-## Current status
+## Status
 
-This repository is being built as a real Rust workspace. The first milestone implements the deterministic runtime slice:
+**M0: IMPLEMENTED / TESTED** — deterministic event processing, state transition, commit roots, append-only in-memory history, and replay verification are available in the workspace. File persistence, distributed transport, and production deployment are not yet implemented.
 
-- observation -> event
-- event bus dispatch
-- state transition
-- epistemic update
-- proposal + policy + capability enforcement
-- execution permit
-- result + commit + state root
-- replay verification
+## Quick start
 
-## Workspace structure
+```bash
+cargo test --workspace
+cargo run -p nova-runtime
+```
 
-- `crates/nova-types` — strong domain identifiers and canonical hashing
-- `crates/nova-event-bus` — event transport and acknowledgement semantics
-- `crates/nova-state` — state transitions and roots
-- `crates/nova-epistemic` — beliefs, hypotheses, predictions, outcomes
-- `crates/nova-glasswing` — capability and policy enforcement
-- `crates/nova-replay` — deterministic replay and divergence detection
-- `crates/nova-runtime` — end-to-end vertical slice / runtime orchestration
+## Runtime spine
 
-## Validation
+```text
+Event → Bus → Runtime → Transition → Commit → StateRoot → History → Replay → Verify
+```
 
-The repository includes an integration test covering the end-to-end decision cycle.
+The authoritative state can only be changed by `nova-runtime` through the typed transition path. Events are immutable values; replay reconstructs state from event history rather than trusting a cached state.
+
+## Crates
+
+- `nova-types` — identifiers and deterministic SHA-256 digests
+- `nova-event-bus` — ordered in-process event transport
+- `nova-state` — minimal authoritative state and transition rules
+- `nova-epistemic` — typed evidence and belief primitives
+- `nova-glasswing` — capability, policy, and execution permits
+- `nova-replay` — history replay and root verification
+- `nova-evidence` — source-aware evidence contract
+- `nova-provenance` — transition lineage records
+- `nova-runtime` — executable end-to-end vertical slice
+
+## Limitations
+
+The current implementation is intentionally single-process and in-memory. It does not claim durable persistence, distributed consensus, cryptographic signatures, formal verification, or production readiness. Those are later milestones.

@@ -1,0 +1,8 @@
+use nova_event_bus::{Event, EventKind}; use nova_types::{Digest, EventId, StateRoot};
+#[derive(Clone, Debug, Eq, PartialEq)] pub struct State { pub counter: i64, pub last_event: Option<EventId> }
+impl Default for State { fn default()->Self { Self{counter:0,last_event:None} } }
+impl State { pub fn root(&self)->StateRoot { let mut b=Vec::new(); b.extend_from_slice(&self.counter.to_le_bytes()); b.extend_from_slice(&self.last_event.map(|x|x.0).unwrap_or(0).to_le_bytes()); StateRoot(Digest::of(b"nova.state.v1",&b).0) } }
+#[derive(Clone, Debug, Eq, PartialEq)] pub struct Proposal { pub next: State, pub event: EventId, pub digest: Digest }
+#[derive(Debug, Clone, Eq, PartialEq)] pub enum StateError { UnsupportedEvent, InvalidPayload, Overflow }
+pub fn transition(previous:&State,event:&Event)->Result<Proposal,StateError>{ let mut next=previous.clone(); match event.kind { EventKind::Increment=>{ if event.payload.len()!=8{return Err(StateError::InvalidPayload)}; let d=i64::from_le_bytes(event.payload.clone().try_into().unwrap()); next.counter=next.counter.checked_add(d).ok_or(StateError::Overflow)?; }, EventKind::Observation=>{} } next.last_event=Some(event.id); let mut b=Vec::new();b.extend_from_slice(&next.counter.to_le_bytes());b.extend_from_slice(&event.id.0.to_le_bytes());Ok(Proposal{next,event:event.id,digest:Digest::of(b"nova.proposal.v1",&b)}) }
+#[cfg(test)] mod tests { use super::*; use nova_types::{LogicalTime,Provenance}; #[test] fn transition_is_deterministic(){let e=Event::increment(EventId(1),LogicalTime(1),None,3,Provenance{origin:"x".into(),trace_id:"t".into()});let a=transition(&State::default(),&e).unwrap();let b=transition(&State::default(),&e).unwrap();assert_eq!(a,b);assert_eq!(a.next.counter,3);} }

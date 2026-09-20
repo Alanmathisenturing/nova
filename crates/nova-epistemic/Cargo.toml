@@ -1,0 +1,8 @@
+[package]
+name = "nova-epistemic"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nova-types = { path = "../nova-types" }

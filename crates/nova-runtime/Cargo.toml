@@ -1,0 +1,12 @@
+[package]
+name = "nova-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nova-event-bus = { path = "../nova-event-bus" }
+nova-state = { path = "../nova-state" }
+nova-types = { path = "../nova-types" }
+nova-replay = { path = "../nova-replay" }
+nova-provenance = { path = "../nova-provenance" }
