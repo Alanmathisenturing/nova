@@ -13,16 +13,28 @@ pub struct Digest(pub [u8; 32]);
 impl Digest {
     pub fn of(domain: &[u8], bytes: &[u8]) -> Self {
         let mut h = Sha256::new();
-        h.update(domain.len().to_le_bytes());
+        h.update((domain.len() as u64).to_le_bytes());
         h.update(domain);
         h.update(bytes);
         Self(h.finalize().into())
     }
-    pub fn hex(self) -> String { self.0.iter().map(|b| format!("{b:02x}")).collect() }
+
+    pub fn hex(self) -> String {
+        self.0.iter().map(|b| format!("{b:02x}")).collect()
+    }
 }
-impl StateRoot { pub fn hex(self) -> String { Digest(self.0).hex() } }
-impl fmt::Display for Digest { fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.hex()) } }
-impl fmt::Display for StateRoot { fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.hex()) } }
+
+impl StateRoot {
+    pub fn hex(self) -> String { Digest(self.0).hex() }
+}
+
+impl fmt::Display for Digest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.hex()) }
+}
+
+impl fmt::Display for StateRoot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.hex()) }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SchemaVersion(pub u16);
@@ -30,7 +42,10 @@ pub struct SchemaVersion(pub u16);
 pub struct LogicalTime(pub u64);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Provenance { pub origin: String, pub trace_id: String }
+pub struct Provenance {
+    pub origin: String,
+    pub trace_id: String,
+}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TypeError { EmptyOrigin, InvalidTraceId }

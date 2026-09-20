@@ -1,20 +1,17 @@
-# M0 Implementation Status
+# NOVA Implementation Status
 
-| Area | Status | Evidence |
-|---|---|---|
-| Workspace | IMPLEMENTED | `cargo check --workspace` |
-| Typed event model | IMPLEMENTED | `nova-event-bus` tests |
-| State transition | IMPLEMENTED | `nova-state` tests |
-| Deterministic StateRoot | IMPLEMENTED | `nova-state` root tests |
-| Ordered event bus | IMPLEMENTED | `nova-event-bus` tests |
-| In-memory commit history | IMPLEMENTED | `nova-runtime` tests |
-| Replay verification | IMPLEMENTED | `nova-replay` tests |
-| Durable persistence | NOT_IMPLEMENTED | Planned M1 |
-| Provenance witness | IMPLEMENTED | `nova-provenance` |
-| Capability enforcement | IMPLEMENTED | `nova-glasswing` tests |
-| Epistemic runtime | SCAFFOLD/IMPLEMENTED | typed primitives only |
-| Distributed execution | NOT_IMPLEMENTED | Planned later |
+## Current verified scope
 
-## Claims policy
+The current M0 slice provides typed events, canonical event digests, deterministic state transitions, StateRoot generation, in-process ordered dispatch, in-memory history, and replay verification.
 
-`IMPLEMENTED` means executable behavior exists. `TESTED` means automated tests cover it. `VERIFIED` is reserved for behavior backed by deterministic and failure-path tests. This repository does not currently claim `PRODUCTION_READY`.
+## Explicit limitations
+
+- Persistence is in-memory only.
+- Replay is not yet backed by a restartable append-only file.
+- The event bus is not durable or distributed.
+- No cryptographic signatures or formal proofs are implemented.
+- Capability enforcement is a primitive boundary and is not integrated into the kernel.
+
+## Next slice
+
+Implement a versioned append-only persistence boundary with corruption detection and restart/replay tests.
