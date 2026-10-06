@@ -1,4 +1,6 @@
 use nova_event_bus::{Event, EventKind};
+
+pub mod institutional;
 use nova_types::{Digest, EventId, StateRoot};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
