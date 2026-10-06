@@ -35,6 +35,11 @@ impl Runtime {
         if e.parent != self.history.last().map(|x| x.id) {
             return Err("invalid parent".into());
         }
+        if let Some(previous) = self.history.last() {
+            if e.logical_time < previous.logical_time {
+                return Err("logical time moved backwards".into());
+            }
+        }
         let previous = self.state.root();
         let proposal = transition(&self.state, &e).map_err(|x| format!("transition: {x:?}"))?;
         let next = proposal.next;
@@ -210,6 +215,18 @@ mod tests {
         r.increment(1, 4).unwrap();
         r.history[0].payload[0] ^= 1;
         assert!(r.replay().is_err());
+    }
+
+    #[test]
+    fn logical_time_cannot_move_backwards() {
+        let mut r = Runtime::default();
+        r.increment(1, 4).unwrap();
+        let event = Event::increment(
+            EventId(2), LogicalTime(0), Some(EventId(1)), 1,
+            Provenance { origin: "test".into(), trace_id: "time".into() },
+        );
+        assert!(r.submit(event).is_err());
+        assert_eq!(r.state().counter, 4);
     }
 }
 
