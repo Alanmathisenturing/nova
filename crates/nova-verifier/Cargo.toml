@@ -10,3 +10,8 @@ nova-event-bus = { path = "../nova-event-bus" }
 
 [dev-dependencies]
 nova-state = { path = "../nova-state" }
+nova-institution = { path = "../nova-institution" }
+nova-evidence = { path = "../nova-evidence" }
+nova-adjudication = { path = "../nova-adjudication" }
+nova-agency = { path = "../nova-agency" }
+nova-glasswing = { path = "../nova-glasswing" }
