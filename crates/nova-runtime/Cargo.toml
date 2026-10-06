@@ -10,3 +10,4 @@ nova-state = { path = "../nova-state" }
 nova-types = { path = "../nova-types" }
 nova-replay = { path = "../nova-replay" }
 nova-provenance = { path = "../nova-provenance" }
+nova-glasswing = { path = "../nova-glasswing" }
