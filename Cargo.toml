@@ -2,7 +2,8 @@
 members = [
   "crates/nova-types","crates/nova-event-bus","crates/nova-state","crates/nova-epistemic",
   "crates/nova-glasswing","crates/nova-replay","crates/nova-evidence","crates/nova-provenance",
-  "crates/nova-runtime","crates/nova-cfqp","crates/nova-adjudication","crates/nova-agency","crates/nova-institution"
+  "crates/nova-runtime","crates/nova-cfqp","crates/nova-adjudication","crates/nova-agency","crates/nova-institution",
+  "crates/nova-decision"
 ]
 resolver="2"
 [workspace.package]
