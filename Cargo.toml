@@ -1,27 +1,16 @@
 [workspace]
 members = [
-  "crates/nova-types",
-  "crates/nova-event-bus",
-  "crates/nova-state",
-  "crates/nova-epistemic",
-  "crates/nova-glasswing",
-  "crates/nova-replay",
-  "crates/nova-evidence",
-  "crates/nova-provenance",
-  "crates/nova-runtime",
-  "crates/nova-cfqp",
-  "crates/nova-adjudication",
-  "crates/nova-agency"
+  "crates/nova-types","crates/nova-event-bus","crates/nova-state","crates/nova-epistemic",
+  "crates/nova-glasswing","crates/nova-replay","crates/nova-evidence","crates/nova-provenance",
+  "crates/nova-runtime","crates/nova-cfqp","crates/nova-adjudication","crates/nova-agency","crates/nova-institution"
 ]
-resolver = "2"
-
+resolver="2"
 [workspace.package]
-version = "0.1.0"
-edition = "2021"
-license = "MIT"
-
+version="0.1.0"
+edition="2021"
+license="MIT"
 [workspace.dependencies]
-sha2 = "0.10"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0"
+sha2="0.10"
+serde={version="1.0",features=["derive"]}
+serde_json="1.0"
+thiserror="1.0"
