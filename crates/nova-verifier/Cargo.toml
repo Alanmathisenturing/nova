@@ -9,4 +9,4 @@ nova-types = { path = "../nova-types" }
 nova-event-bus = { path = "../nova-event-bus" }
 
 [dev-dependencies]
-nova-runtime = { path = "../nova-runtime" }
+nova-state = { path = "../nova-state" }
