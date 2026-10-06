@@ -6,3 +6,4 @@ license.workspace = true
 
 [dependencies]
 nova-epistemic = { path = "../nova-epistemic" }
+nova-types = { path = "../nova-types" }
