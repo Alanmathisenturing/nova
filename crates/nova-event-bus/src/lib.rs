@@ -60,7 +60,7 @@ impl Event {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EventError { UnknownSchema(u16), MalformedPayload, InvalidOrigin, InvalidTraceId, IntegrityViolation }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct EventBus { queue: VecDeque<Event> }
 impl EventBus {
     pub fn publish(&mut self, event: Event) { self.queue.push_back(event); }
