@@ -54,7 +54,13 @@ pub struct Evidence {
 
 impl Evidence {
     pub fn new(id: EvidenceId, observed_at: Timestamp, available_at: Timestamp, content: Vec<u8>) -> Self {
-        let digest = Digest::of(crate::domains::EVIDENCE_DOMAIN, &content);
+        let mut canonical = Vec::new();
+        canonical.extend_from_slice(&id.0.to_le_bytes());
+        canonical.extend_from_slice(&observed_at.to_le_bytes());
+        canonical.extend_from_slice(&available_at.to_le_bytes());
+        canonical.extend_from_slice(&(content.len() as u64).to_le_bytes());
+        canonical.extend_from_slice(&content);
+        let digest = Digest::of(crate::domains::EVIDENCE_DOMAIN, &canonical);
         Self {
             id,
             observed_at,
