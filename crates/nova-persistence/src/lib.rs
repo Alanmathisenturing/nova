@@ -20,10 +20,7 @@ pub enum JournalError {
 impl From<io::Error> for JournalError { fn from(e: io::Error) -> Self { Self::Io(e) } }
 impl From<nova_event_bus::EventError> for JournalError { fn from(e: nova_event_bus::EventError) -> Self { Self::Event(e) } }
 
-pub struct Journal {
-    path: PathBuf,
-    file: File,
-}
+pub struct Journal { path: PathBuf, file: File }
 
 impl Journal {
     pub fn open(path: impl AsRef<Path>) -> Result<(Self, Vec<Event>), JournalError> {
@@ -36,6 +33,7 @@ impl Journal {
             file.sync_data()?;
             return Ok((Self { path, file }, Vec::new()));
         }
+        if len < 12 { return Err(JournalError::Corruption { offset: 0 }); }
         file.seek(SeekFrom::Start(0))?;
         let mut header = [0u8; 12];
         file.read_exact(&mut header)?;
@@ -47,19 +45,22 @@ impl Journal {
         let mut events = Vec::new();
         let mut offset = 12u64;
         loop {
+            if offset == len { break; }
+            if len - offset < 8 { return Err(JournalError::Corruption { offset }); }
+
             let mut lenbuf = [0u8; 8];
-            match file.read_exact(&mut lenbuf) {
-                Ok(()) => {}
-                Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                    return Err(JournalError::Corruption { offset });
-                }
-                Err(e) => return Err(e.into()),
-            }
+            file.read_exact(&mut lenbuf)?;
             let record_len = u64::from_le_bytes(lenbuf);
-            if record_len == 0 || record_len > MAX_RECORD { return Err(JournalError::Corruption { offset }); }
+            if record_len == 0 || record_len > MAX_RECORD {
+                return Err(JournalError::Corruption { offset });
+            }
             let total = record_len.checked_add(32).ok_or(JournalError::LengthOverflow)?;
+            if total > len - offset - 8 {
+                return Err(JournalError::Corruption { offset });
+            }
+
             let mut record = vec![0u8; total as usize];
-            file.read_exact(&mut record).map_err(|_| JournalError::Corruption { offset })?;
+            file.read_exact(&mut record)?;
             let body = &record[..record_len as usize];
             let stored = &record[record_len as usize..];
             let actual = Sha256::digest(body);
@@ -69,6 +70,7 @@ impl Journal {
             events.push(event);
             offset += 8 + total;
         }
+        Ok((Self { path, file }, events))
     }
 
     pub fn append(&mut self, event: &Event) -> Result<(), JournalError> {
@@ -86,11 +88,9 @@ impl Journal {
 }
 
 fn put_u16(v: &mut Vec<u8>, x: u16) { v.extend_from_slice(&x.to_le_bytes()); }
-fn put_u32(v: &mut Vec<u8>, x: u32) { v.extend_from_slice(&x.to_le_bytes()); }
 fn put_u64(v: &mut Vec<u8>, x: u64) { v.extend_from_slice(&x.to_le_bytes()); }
 fn put_bytes(v: &mut Vec<u8>, b: &[u8]) { put_u64(v, b.len() as u64); v.extend_from_slice(b); }
 fn get_u16(c: &mut Cursor<&[u8]>) -> io::Result<u16> { let mut b=[0;2]; c.read_exact(&mut b)?; Ok(u16::from_le_bytes(b)) }
-fn get_u32(c: &mut Cursor<&[u8]>) -> io::Result<u32> { let mut b=[0;4]; c.read_exact(&mut b)?; Ok(u32::from_le_bytes(b)) }
 fn get_u64(c: &mut Cursor<&[u8]>) -> io::Result<u64> { let mut b=[0;8]; c.read_exact(&mut b)?; Ok(u64::from_le_bytes(b)) }
 fn get_bytes(c: &mut Cursor<&[u8]>) -> io::Result<Vec<u8>> {
     let n=get_u64(c)? as usize; let mut b=vec![0;n]; c.read_exact(&mut b)?; Ok(b)
