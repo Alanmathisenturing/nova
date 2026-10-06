@@ -12,11 +12,11 @@ This file reports repository evidence only. Percentages are not inferred from ar
 | Evidence | IMPLEMENTED_UNTESTED | Existing crate is present; full evidence runtime not verified |
 | StateRoot | IMPLEMENTED_UNTESTED | Existing state/runtime root path; independent replay proof not verified |
 | Agency | IMPLEMENTED_UNTESTED | nova-agency deterministic AgencyState + VerdictClass transition + StateRoot binding added; CI execution not yet observed |
-| Authority | IMPLEMENTED_UNTESTED | Existing Glasswing permits; institutional authority derivation not verified |
+| Authority | IMPLEMENTED_UNTESTED | Glasswing Authority + scoped, revocable, expiring, StateRoot-bound Permit checks added; CI execution not yet observed |
 | Adjudication | IMPLEMENTED_UNTESTED | nova-adjudication Claim/Case/Verdict/Root primitives and tests |
-| Execution | IMPLEMENTED_UNTESTED | Existing runtime execution path; institutional authorization integration not verified |
+| Execution | IMPLEMENTED_UNTESTED | nova-runtime submit_authorized integrates Glasswing authorization with state transition; CI execution not yet observed |
 | Replay | IMPLEMENTED_UNTESTED | Existing replay crate; end-to-end institutional replay not verified |
-| Integration | NOT_IMPLEMENTED | Full Evidence→Adjudication→Agency→Authority→Execution→Replay path not verified |
+| Integration | IMPLEMENTED_UNTESTED | Runtime authorization→transition→replay vertical slice added; full institutional chain remains unverified |
 | Institutional Proof | NOT_IMPLEMENTED | Requires independent replay plus adversarial end-to-end evidence |
 
 ## Current hard gate
