@@ -19,6 +19,8 @@ impl Digest {
         Self(h.finalize().into())
     }
 
+    pub fn as_bytes(&self) -> &[u8; 32] { &self.0 }
+
     pub fn hex(self) -> String {
         self.0.iter().map(|b| format!("{b:02x}")).collect()
     }
