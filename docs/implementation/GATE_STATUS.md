@@ -15,9 +15,9 @@ This file reports repository evidence only. Percentages are not inferred from ar
 | Authority | TESTED | Glasswing Authority + scoped, revocable, expiring, StateRoot-bound Permit checks added; CI execution not yet observed |
 | Adjudication | TESTED | nova-adjudication Claim/Case/Verdict/Root primitives and tests |
 | Execution | TESTED | nova-runtime submit_authorized integrates Glasswing authorization with state transition; CI execution not yet observed |
-| Replay | TESTED | Existing replay crate; end-to-end institutional replay not verified |
+| Replay | TESTED | Replay crate reconstructs state; independent verifier now added, current CI observation pending |
 | Integration | TESTED | nova-institution implements Evidence→Adjudication→Agency→Authority→Permit→Execution→Outcome→Replay |
-| Institutional Proof | TESTED | nova-institution binds Evidence→Adjudication→Agency→Authority→Permit→Execution→Replay; CI result still unobserved |
+| Institutional Proof | TESTED | nova-institution binds Evidence→Adjudication→Agency→Authority→Permit→Execution→Replay; independent base-state verifier added |
 | Decision | TESTED | nova-decision validates StateRoot, evidence presence, uncertainty and expiry |
 | Economic State | TESTED | nova-economic provides root-bound capital reserve/release transitions and exposure limits |
 | Workforce Compiler | TESTED | nova-workforce compiles bounded role specifications into deterministic AgentSpec |
@@ -29,3 +29,7 @@ GitHub Actions run `37417532262` for commit `57fb4c0175da9244f629a9608c9ac4b588c
 This promotes implemented layers to TESTED, not VERIFIED. VERIFIED still requires independent reconstruction/replay evidence that does not merely trust the runtime's own assertions.
 
 No status is upgraded merely because code exists.
+
+## Current independent verification work
+
+Added `crates/nova-verifier`, which reconstructs the canonical state root without calling `nova_state::transition` or `nova_replay::replay`. It validates ordering, parent linkage, payload semantics, overflow, tampering, duplicate events, and expected-root equality. The current branch head is `b4adb3696c8576e6d76b960aaeffd32fcf683312`; GitHub CI/status has not yet produced an observed result for that head, so this work remains TESTED/UNOBSERVED at the repository gate level.
