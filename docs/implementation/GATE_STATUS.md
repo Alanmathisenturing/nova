@@ -18,6 +18,9 @@ This file reports repository evidence only. Percentages are not inferred from ar
 | Replay | IMPLEMENTED_UNTESTED | Existing replay crate; end-to-end institutional replay not verified |
 | Integration | IMPLEMENTED_UNTESTED | nova-institution implements Evidence→Adjudication→Agency→Authority→Permit→Execution→Outcome→Replay |
 | Institutional Proof | IMPLEMENTED_UNTESTED | nova-institution binds Evidence→Adjudication→Agency→Authority→Permit→Execution→Replay; CI result still unobserved |
+| Decision | IMPLEMENTED_UNTESTED | nova-decision validates StateRoot, evidence presence, uncertainty and expiry |
+| Economic State | IMPLEMENTED_UNTESTED | nova-economic provides root-bound capital reserve/release transitions and exposure limits |
+| Workforce Compiler | IMPLEMENTED_UNTESTED | nova-workforce compiles bounded role specifications into deterministic AgentSpec |
 
 ## Current hard gate
 
