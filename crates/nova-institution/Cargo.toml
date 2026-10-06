@@ -1,0 +1,14 @@
+[package]
+name = "nova-institution"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nova-types = { path = "../nova-types" }
+nova-evidence = { path = "../nova-evidence" }
+nova-adjudication = { path = "../nova-adjudication" }
+nova-agency = { path = "../nova-agency" }
+nova-glasswing = { path = "../nova-glasswing" }
+nova-event-bus = { path = "../nova-event-bus" }
+nova-state = { path = "../nova-state" }
