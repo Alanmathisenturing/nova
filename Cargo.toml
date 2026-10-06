@@ -9,7 +9,8 @@ members = [
   "crates/nova-evidence",
   "crates/nova-provenance",
   "crates/nova-runtime",
-  "crates/nova-cfqp"
+  "crates/nova-cfqp",
+  "crates/nova-adjudication"
 ]
 resolver = "2"
 
