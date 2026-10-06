@@ -89,9 +89,17 @@ pub enum AgencyTransitionError {
 
 pub fn transition(
     current: &AgencyState,
+    expected_prior_root: StateRoot,
+    target_agency_id: AgencyId,
     adjudication_root: AdjudicationRoot,
     verdict: VerdictClass,
 ) -> Result<(AgencyState, AgencyTransition), AgencyTransitionError> {
+    if current.id != target_agency_id {
+        return Err(AgencyTransitionError::AgencyMismatch);
+    }
+    if current.root() != expected_prior_root {
+        return Err(AgencyTransitionError::StaleStateRoot);
+    }
     let next_status = match verdict {
         VerdictClass::Supported => AgencyStatus::Active,
         VerdictClass::WeaklySupported => AgencyStatus::Probation,
@@ -149,7 +157,7 @@ mod tests {
 
     #[test]
     fn supported_verdict_promotes_agency() {
-        let (next, tx) = transition(&agency(), adjudication_root(), VerdictClass::Supported).unwrap();
+        let (next, tx) = transition(&agency(), agency().root(), AgencyId(7), adjudication_root(), VerdictClass::Supported).unwrap();
         assert_eq!(next.status, AgencyStatus::Active);
         assert_eq!(next.epoch, 4);
         assert_eq!(tx.prior_root, agency().root());
@@ -158,31 +166,60 @@ mod tests {
 
     #[test]
     fn contradicted_verdict_suspends_agency() {
-        let (next, _) = transition(&agency(), adjudication_root(), VerdictClass::Contradicted).unwrap();
+        let (next, _) = transition(&agency(), agency().root(), AgencyId(7), adjudication_root(), VerdictClass::Contradicted).unwrap();
         assert_eq!(next.status, AgencyStatus::Suspended);
     }
 
     #[test]
     fn rejected_verdict_revokes_agency() {
-        let (next, _) = transition(&agency(), adjudication_root(), VerdictClass::Rejected).unwrap();
+        let (next, _) = transition(&agency(), agency().root(), AgencyId(7), adjudication_root(), VerdictClass::Rejected).unwrap();
         assert_eq!(next.status, AgencyStatus::Revoked);
     }
 
     #[test]
     fn underdetermined_verdict_preserves_status_but_advances_history() {
         let current = agency();
-        let (next, _) = transition(&current, adjudication_root(), VerdictClass::Underdetermined).unwrap();
+        let (next, _) = transition(&current, current.root(), AgencyId(7), adjudication_root(), VerdictClass::Underdetermined).unwrap();
         assert_eq!(next.status, current.status);
         assert_eq!(next.epoch, current.epoch + 1);
         assert_ne!(next.root(), current.root());
     }
 
+
+    #[test]
+    fn stale_root_is_rejected() {
+        let current = agency();
+        let err = transition(
+            &current,
+            StateRoot([9; 32]),
+            AgencyId(7),
+            adjudication_root(),
+            VerdictClass::Supported,
+        ).unwrap_err();
+        assert_eq!(err, AgencyTransitionError::StaleStateRoot);
+    }
+
+    #[test]
+    fn wrong_agency_is_rejected() {
+        let current = agency();
+        let err = transition(
+            &current,
+            current.root(),
+            AgencyId(8),
+            adjudication_root(),
+            VerdictClass::Supported,
+        ).unwrap_err();
+        assert_eq!(err, AgencyTransitionError::AgencyMismatch);
+    }
+
     #[test]
     fn different_adjudication_changes_next_root() {
         let current = agency();
-        let (a, _) = transition(&current, adjudication_root(), VerdictClass::Supported).unwrap();
+        let (a, _) = transition(&current, current.root(), AgencyId(7), adjudication_root(), VerdictClass::Supported).unwrap();
         let (b, _) = transition(
             &current,
+            current.root(),
+            AgencyId(7),
             AdjudicationRoot(Digest::of(b"adjudication", b"a2")),
             VerdictClass::Supported,
         ).unwrap();
