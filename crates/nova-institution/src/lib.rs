@@ -1,7 +1,7 @@
 use nova_adjudication::{AdjudicationCase, AdjudicationRecord, AgencyId, Verdict, VerdictClass};
 use nova_agency::{transition as agency_transition, AgencyState, AgencyStatus};
 use nova_evidence::{Evidence, EvidenceError};
-use nova_event_bus::Event;
+use nova_event_bus::{Event, EventError};
 use nova_glasswing::{issue, Action, Authority, Capability, Permit, PolicyError};
 use nova_state::{transition as state_transition, State};
 use nova_types::{Digest, StateRoot};
@@ -32,8 +32,9 @@ impl InstitutionalEvent {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InstitutionalWitness { pub event_digest:Digest, pub prior_root:StateRoot, pub next_root:StateRoot }
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum InstitutionError { Evidence(EvidenceError), Agency, Policy(PolicyError), InvalidBinding, StaleStateRoot, Replay }
+pub enum InstitutionError { Evidence(EvidenceError), Event(EventError), Agency, Policy(PolicyError), InvalidBinding, StaleStateRoot, Replay }
 impl From<EvidenceError> for InstitutionError {fn from(e:EvidenceError)->Self{Self::Evidence(e)}}
+impl From<EventError> for InstitutionError {fn from(e:EventError)->Self{Self::Event(e)}}
 
 pub struct InstitutionalRuntime { state:InstitutionalState, history:Vec<InstitutionalEvent>, witnesses:Vec<InstitutionalWitness> }
 impl InstitutionalRuntime {
@@ -50,6 +51,7 @@ impl InstitutionalRuntime {
   self.witnesses.push(InstitutionalWitness{event_digest:self.history.last().unwrap().digest(),prior_root:prior,next_root:self.state.root});Ok(self.state.root)
  }
  pub fn execute(&mut self,event:Event,action:Action,permit:Permit,now:u64)->Result<StateRoot,InstitutionError>{
+  event.validate()?;
   if action.state_root!=self.state.root||action.event!=event.id{return Err(InstitutionError::StaleStateRoot)}
   let expected=issue(&self.authority(),&action,now).map_err(InstitutionError::Policy)?; if expected!=permit{return Err(InstitutionError::Policy(PolicyError::Denied))}
   nova_glasswing::authorize(&permit,&action,now).map_err(InstitutionError::Policy)?;
@@ -68,6 +70,7 @@ impl InstitutionalRuntime {
      let sealed=AdjudicationRecord::seal(case_,verdict);let (next,_)=agency_transition(&agency,agency.root(),agency.id,sealed.root,verdict.classification).map_err(|_|InstitutionError::Replay)?;agency=next;root=root_of(&agency,&exec);
     }
     InstitutionalEvent::Executed{event,action,permit}=>{
+     event.validate().map_err(|_|InstitutionError::Replay)?;
      if action.state_root!=root||action.event!=event.id{return Err(InstitutionError::Replay)}
      let authority=Authority{actor:format!("agency:{}",agency.id.0),capability:Capability{name:"counter.increment".into(),scope:"counter".into()},expires_at:Some(agency.epoch+100),revoked:!matches!(agency.status,AgencyStatus::Active|AgencyStatus::Probation)};
      let expected=issue(&authority,action,agency.epoch).map_err(|_|InstitutionError::Replay)?;if expected!=*permit{return Err(InstitutionError::Replay)}
