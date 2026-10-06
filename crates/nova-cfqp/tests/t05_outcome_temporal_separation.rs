@@ -11,7 +11,7 @@ fn t05_outcome_does_not_include_decision_information() {
     let set = InformationSet::new(boundary, vec![e1]).unwrap();
     let decision = Decision::new(DecisionId(1), 100, set, vec![7, 8, 9]);
 
-    let outcome = Outcome::new(OutcomeId(1), decision.id, 3000, vec![result_data]);
+    let outcome = Outcome::new(OutcomeId(1), decision.id, 3000, vec![12, 13]);
 
     // The outcome digest includes the decision_id but NOT the information set
     // This preserves temporal separation
