@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Error)]
 #[error("{self:?}")]
 pub enum CfqpError {
     InformationBoundaryViolation,
