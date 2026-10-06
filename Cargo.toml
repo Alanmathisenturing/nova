@@ -6,7 +6,8 @@ members = [
   "crates/nova-decision",
   "crates/nova-economic",
   "crates/nova-workforce",
-  "crates/nova-governor"
+  "crates/nova-governor",
+  "crates/nova-verifier"
 ]
 resolver="2"
 [workspace.package]
