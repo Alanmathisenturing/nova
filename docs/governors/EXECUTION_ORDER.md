@@ -38,6 +38,8 @@ Each layer may advance only after the previous layer has a concrete artifact, in
 
 ## Verification boundary
 
-The current GitHub Actions query for the PR head has returned no workflow run. Therefore no layer is promoted to VERIFIED by this ledger.
+GitHub Actions run 37417642598 for commit 733665c03ed93d5ddb3ff0ad1315a97713b09c2a completed successfully. Its test job observed success for cargo fmt --all, cargo check --workspace, cargo test --workspace, and cargo test --workspace --release.
+
+This is TESTED evidence. No layer is promoted to VERIFIED merely from this CI result because independent reconstruction is still a separate requirement.
 
 The next mandatory transition is execution evidence: cargo fmt --all -- --check, cargo check --workspace, cargo test --workspace, and release tests must actually run and produce observable results.
