@@ -26,6 +26,7 @@ impl Default for Runtime {
 
 impl Runtime {
     pub fn submit(&mut self, event: Event) -> Result<StateRoot, String> {
+        event.validate().map_err(|e| format!("event validation: {e:?}"))?;
         self.bus.publish(event);
         let e = self.bus.pop().ok_or("empty bus")?;
         if self.history.last().map(|x| x.id >= e.id).unwrap_or(false) {
