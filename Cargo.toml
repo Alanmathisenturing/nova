@@ -10,7 +10,8 @@ members = [
   "crates/nova-provenance",
   "crates/nova-runtime",
   "crates/nova-cfqp",
-  "crates/nova-adjudication"
+  "crates/nova-adjudication",
+  "crates/nova-agency"
 ]
 resolver = "2"
 
