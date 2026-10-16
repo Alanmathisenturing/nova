@@ -1,6 +1,5 @@
 use nova_types::Digest;
 use std::collections::BTreeSet;
-use std::fmt;
 
 // PHASE 1A Identity Types
 
@@ -108,7 +107,7 @@ impl InformationSet {
         canonical.extend_from_slice(&boundary.decision_time.to_le_bytes());
         for e in &sorted {
             canonical.extend_from_slice(&e.id.0.to_le_bytes());
-            canonical.extend_from_slice(e.digest.as_bytes());
+            canonical.extend_from_slice(&e.digest.0);
         }
 
         let set_digest = Digest::of(crate::domains::INFORMATION_SET_DOMAIN, &canonical);
@@ -151,7 +150,7 @@ impl Decision {
         let mut canonical = Vec::new();
         canonical.extend_from_slice(&id.0.to_le_bytes());
         canonical.extend_from_slice(&actor.to_le_bytes());
-        canonical.extend_from_slice(information_set.set_digest.as_bytes());
+        canonical.extend_from_slice(&information_set.set_digest.0);
         canonical.extend_from_slice(&action);
 
         let digest = Digest::of(crate::domains::DECISION_DOMAIN, &canonical);
