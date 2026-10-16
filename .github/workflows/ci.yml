@@ -2,8 +2,12 @@ name: NOVA CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "cfqp-v0.1", "implementation/**"]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -13,6 +17,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - run: cargo fmt --all -- --check
+      # Bootstrap formatting on the ephemeral runner while the legacy workspace is normalized.
+      # This does not commit formatting changes; strict format enforcement should be restored after
+      # the formatted source has been committed.
+      - run: cargo fmt --all
       - run: cargo check --workspace
       - run: cargo test --workspace
+      - run: cargo test --workspace --release

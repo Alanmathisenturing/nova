@@ -130,7 +130,7 @@ mod tests {
     use super::*;
     use std::time::{SystemTime,UNIX_EPOCH};
     fn path() -> PathBuf { std::env::temp_dir().join(format!("nova-journal-{}.bin",SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos())) }
-    fn event(id:u64,parent:Option<u64>,delta:i64)->Event { Event::increment(EventId(id),LogicalTime(id),parent,delta,Provenance{origin:"test".into(),trace_id:format!("t-{id}")}) }
+    fn event(id:u64,parent:Option<u64>,delta:i64)->Event { Event::increment(EventId(id),LogicalTime(id),parent.map(EventId),delta,Provenance{origin:"test".into(),trace_id:format!("t-{id}")}) }
 
     #[test]
     fn restart_round_trip() {
