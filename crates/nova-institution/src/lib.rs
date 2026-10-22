@@ -5,6 +5,9 @@ use nova_event_bus::{Event, EventError};
 use nova_glasswing::{issue, Action, Authority, Capability, Permit, PolicyError};
 use nova_state::{transition as state_transition, State};
 use nova_types::{Digest, StateRoot};
+use nova_persistence::Journal;
+use nova_persistence::JournalError;
+use std::path::Path;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InstitutionalState { pub agency: AgencyState, pub execution: State, pub root: StateRoot }
@@ -32,7 +35,7 @@ impl InstitutionalEvent {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InstitutionalWitness { pub event_digest:Digest, pub prior_root:StateRoot, pub next_root:StateRoot }
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum InstitutionError { Evidence(EvidenceError), Event(EventError), Agency, Policy(PolicyError), InvalidBinding, StaleStateRoot, Replay }
+pub enum InstitutionError { Evidence(EvidenceError), Event(EventError), Agency, Policy(PolicyError), Persistence(String), InvalidBinding, StaleStateRoot, Replay }
 impl From<EvidenceError> for InstitutionError {fn from(e:EvidenceError)->Self{Self::Evidence(e)}}
 impl From<EventError> for InstitutionError {fn from(e:EventError)->Self{Self::Event(e)}}
 
@@ -58,6 +61,25 @@ impl InstitutionalRuntime {
   let proposal=state_transition(&self.state.execution,&event).map_err(|_|InstitutionError::Agency)?;let prior=self.state.root;
   self.state.execution=proposal.next;self.state.refresh();self.history.push(InstitutionalEvent::Executed{event,action,permit,now});
   self.witnesses.push(InstitutionalWitness{event_digest:self.history.last().unwrap().digest(),prior_root:prior,next_root:self.state.root});Ok(self.state.root)
+ }
+ pub fn execute_persisted(&mut self,event:Event,action:Action,permit:Permit,now:u64,journal:&mut Journal)->Result<StateRoot,InstitutionError>{
+  event.validate()?;
+  if action.state_root!=self.state.root||action.event!=event.id{return Err(InstitutionError::StaleStateRoot)}
+  let expected=issue(&self.authority(),&action,now).map_err(InstitutionError::Policy)?;
+  if expected!=permit{return Err(InstitutionError::Policy(PolicyError::Denied))}
+  nova_glasswing::authorize(&permit,&action,now).map_err(InstitutionError::Policy)?;
+  let proposal=state_transition(&self.state.execution,&event).map_err(|_|InstitutionError::Agency)?;
+  // Durable append happens before in-memory commit. If append fails, state is unchanged.
+  journal.append(&event).map_err(|e:JournalError|InstitutionError::Persistence(format!("{e:?}")))?;
+  let prior=self.state.root;
+  self.state.execution=proposal.next;
+  self.state.refresh();
+  self.history.push(InstitutionalEvent::Executed{event,action,permit,now});
+  self.witnesses.push(InstitutionalWitness{event_digest:self.history.last().unwrap().digest(),prior_root:prior,next_root:self.state.root});
+  Ok(self.state.root)
+ }
+ pub fn open_execution_journal(path:impl AsRef<Path>)->Result<(Journal,Vec<Event>),InstitutionError>{
+  Journal::open(path).map_err(|e|InstitutionError::Persistence(format!("{e:?}")))
  }
  pub fn replay(&self)->Result<StateRoot,InstitutionError>{
   if self.history.len()!=self.witnesses.len(){return Err(InstitutionError::Replay)}
@@ -104,4 +126,25 @@ mod tests{
  #[test]fn full_chain_and_replay(){let mut r=InstitutionalRuntime::new(initial());let e=evidence();let (c,v)=verdict(r.state().root,&e,VerdictClass::Supported);let claim=Claim{id:ClaimId(1),subject:"agency:7".into(),predicate:"qualified_for".into(),object:"counter.increment".into(),evidence:vec![e.digest],issuer:AgencyId(7),created_at:LogicalTime(1),prior_state_root:r.state().root};let root=r.adjudicate(e,claim,c,v).unwrap();assert_eq!(r.state().agency.status,AgencyStatus::Active);let event=Event::increment(EventId(1),LogicalTime(3),None,7,Provenance{origin:"test".into(),trace_id:"x".into()});let action=Action{actor:"agency:7".into(),resource:"counter".into(),capability:"counter.increment".into(),event:event.id,state_root:root};let permit=issue(&r.authority(),&action,r.state().agency.epoch).unwrap();let final_root=r.execute(event,action,permit,r.state().agency.epoch).unwrap();assert_eq!(r.state().execution.counter,7);assert_eq!(r.replay().unwrap(),final_root);}
  #[test]fn contradiction_revokes_authority(){let mut r=InstitutionalRuntime::new(initial());let e=evidence();let (c,v)=verdict(r.state().root,&e,VerdictClass::Contradicted);let claim=Claim{id:ClaimId(1),subject:"agency:7".into(),predicate:"qualified_for".into(),object:"counter.increment".into(),evidence:vec![e.digest],issuer:AgencyId(7),created_at:LogicalTime(1),prior_state_root:r.state().root};r.adjudicate(e,claim,c,v).unwrap();assert_eq!(r.state().agency.status,AgencyStatus::Suspended);let event=Event::increment(EventId(1),LogicalTime(3),None,1,Provenance{origin:"test".into(),trace_id:"x".into()});let a=Action{actor:"agency:7".into(),resource:"counter".into(),capability:"counter.increment".into(),event:event.id,state_root:r.state().root};assert!(issue(&r.authority(),&a,1).is_err());}
  #[test]fn stale_state_is_rejected(){let mut r=InstitutionalRuntime::new(initial());let e=evidence();let (c,v)=verdict(r.state().root,&e,VerdictClass::Supported);let claim=Claim{id:ClaimId(1),subject:"agency:7".into(),predicate:"qualified_for".into(),object:"counter.increment".into(),evidence:vec![e.digest],issuer:AgencyId(7),created_at:LogicalTime(1),prior_state_root:r.state().root};r.adjudicate(e,claim,c,v).unwrap();let event=Event::increment(EventId(1),LogicalTime(3),None,1,Provenance{origin:"test".into(),trace_id:"x".into()});let a=Action{actor:"agency:7".into(),resource:"counter".into(),capability:"counter.increment".into(),event:event.id,state_root:StateRoot([0;32])};let p=issue(&r.authority(),&a,1).unwrap();assert!(r.execute(event,a,p,1).is_err());}
+ #[test]fn persisted_execution_recovers_and_replays(){
+  use std::time::{SystemTime,UNIX_EPOCH};
+  let path=std::env::temp_dir().join(format!("nova-institution-{}.journal",SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+  let mut r=InstitutionalRuntime::new(initial());
+  let e=evidence();let (case_,v)=verdict(r.state().root,&e,VerdictClass::Supported);
+  let claim=Claim{id:ClaimId(1),subject:"agency:7".into(),predicate:"qualified_for".into(),object:"counter.increment".into(),evidence:vec![e.digest],issuer:AgencyId(7),created_at:LogicalTime(1),prior_state_root:r.state().root};
+  let root=r.adjudicate(e,claim,case_,v).unwrap();
+  let event=Event::increment(EventId(1),LogicalTime(3),None,7,Provenance{origin:"test".into(),trace_id:"persisted".into()});
+  let action=Action{actor:"agency:7".into(),resource:"counter".into(),capability:"counter.increment".into(),event:event.id,state_root:root};
+  let permit=issue(&r.authority(),&action,r.state().agency.epoch).unwrap();
+  let (mut journal,old)=Journal::open(&path).unwrap();assert!(old.is_empty());
+  let final_root=r.execute_persisted(event,action,permit,r.state().agency.epoch,&mut journal).unwrap();
+  drop(journal);
+  let (_reopened,recovered)=Journal::open(&path).unwrap();
+  assert_eq!(recovered.len(),1);
+  let replayed=nova_replay::replay(&recovered,None).unwrap();
+  assert_eq!(replayed.root,r.state().execution.root());
+  assert_eq!(r.replay().unwrap(),final_root);
+  std::fs::remove_file(path).unwrap();
+ }
+
 }
