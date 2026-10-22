@@ -17,14 +17,14 @@ fn root_of(a:&AgencyState,e:&State)->StateRoot{let mut b=Vec::new();b.extend_fro
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum InstitutionalEvent {
     Adjudicated { evidence:Evidence, claim:Claim, case_:AdjudicationCase, verdict:Verdict },
-    Executed { event:Event, action:Action, permit:Permit },
+    Executed { event:Event, action:Action, permit:Permit, now:u64 },
 }
 impl InstitutionalEvent {
     fn digest(&self)->Digest{
         let mut b=Vec::new();
         match self {
             Self::Adjudicated{evidence,claim,case_,verdict}=>{b.push(1);b.extend_from_slice(&evidence.digest.0);b.extend_from_slice(&claim.digest().0);b.extend_from_slice(&case_.digest().0);b.extend_from_slice(&verdict.digest().0);}
-            Self::Executed{event,action,permit}=>{b.push(2);b.extend_from_slice(&event.digest.0);b.extend_from_slice(&action.digest().0);b.extend_from_slice(&permit.action_digest.0);}
+            Self::Executed{event,action,permit,now}=>{b.push(2);b.extend_from_slice(&event.digest.0);b.extend_from_slice(&action.digest().0);b.extend_from_slice(&permit.action_digest.0);b.extend_from_slice(&now.to_le_bytes());}
         }
         Digest::of(b"nova.institutional_event.v1",&b)
     }
@@ -36,9 +36,9 @@ pub enum InstitutionError { Evidence(EvidenceError), Event(EventError), Agency, 
 impl From<EvidenceError> for InstitutionError {fn from(e:EvidenceError)->Self{Self::Evidence(e)}}
 impl From<EventError> for InstitutionError {fn from(e:EventError)->Self{Self::Event(e)}}
 
-pub struct InstitutionalRuntime { state:InstitutionalState, history:Vec<InstitutionalEvent>, witnesses:Vec<InstitutionalWitness> }
+pub struct InstitutionalRuntime { genesis:AgencyState, state:InstitutionalState, history:Vec<InstitutionalEvent>, witnesses:Vec<InstitutionalWitness> }
 impl InstitutionalRuntime {
- pub fn new(agency:AgencyState)->Self{Self{state:InstitutionalState::new(agency),history:Vec::new(),witnesses:Vec::new()}}
+ pub fn new(agency:AgencyState)->Self{Self{genesis:agency.clone(),state:InstitutionalState::new(agency),history:Vec::new(),witnesses:Vec::new()}}
  pub fn state(&self)->&InstitutionalState{&self.state}
  pub fn history(&self)->&[InstitutionalEvent]{&self.history}
  pub fn witnesses(&self)->&[InstitutionalWitness]{&self.witnesses}
@@ -56,29 +56,41 @@ impl InstitutionalRuntime {
   let expected=issue(&self.authority(),&action,now).map_err(InstitutionError::Policy)?; if expected!=permit{return Err(InstitutionError::Policy(PolicyError::Denied))}
   nova_glasswing::authorize(&permit,&action,now).map_err(InstitutionError::Policy)?;
   let proposal=state_transition(&self.state.execution,&event).map_err(|_|InstitutionError::Agency)?;let prior=self.state.root;
-  self.state.execution=proposal.next;self.state.refresh();self.history.push(InstitutionalEvent::Executed{event,action,permit});
+  self.state.execution=proposal.next;self.state.refresh();self.history.push(InstitutionalEvent::Executed{event,action,permit,now});
   self.witnesses.push(InstitutionalWitness{event_digest:self.history.last().unwrap().digest(),prior_root:prior,next_root:self.state.root});Ok(self.state.root)
  }
  pub fn replay(&self)->Result<StateRoot,InstitutionError>{
-  let first=self.history.iter().find_map(|e|match e{InstitutionalEvent::Adjudicated{case_,..}=>Some(case_.prior_state_root),_=>None}).ok_or(InstitutionError::Replay)?;
-  let mut agency=match self.history.first(){Some(InstitutionalEvent::Adjudicated{claim,..})=>AgencyState{id:claim.issuer,epoch:0,status:AgencyStatus::Probation,qualification_root:self.state.agency.qualification_root,adjudication_root:None,prior_state_root:StateRoot([0;32])},_=>return Err(InstitutionError::Replay)};
-  let mut exec=State::default(); let mut root=root_of(&agency,&exec); if root!=first{return Err(InstitutionError::Replay)}
-  for item in &self.history {
+  if self.history.len()!=self.witnesses.len(){return Err(InstitutionError::Replay)}
+  let mut agency=self.genesis.clone();
+  let mut exec=State::default();
+  let mut root=root_of(&agency,&exec);
+  for (index,item) in self.history.iter().enumerate() {
+   let witness=&self.witnesses[index];
+   if witness.prior_root!=root||witness.event_digest!=item.digest(){return Err(InstitutionError::Replay)}
    match item {
     InstitutionalEvent::Adjudicated{evidence,claim,case_,verdict}=>{
-     evidence.validate()?;if claim.id!=case_.claim||claim.issuer!=agency.id||claim.prior_state_root!=root{return Err(InstitutionError::Replay)} if case_.prior_state_root!=root||verdict.prior_state_root!=root||verdict.case_id!=case_.id||verdict.evidence!=case_.evidence||!case_.evidence.contains(&evidence.digest){return Err(InstitutionError::Replay)}
-     let sealed=AdjudicationRecord::seal(case_,verdict);let (next,_)=agency_transition(&agency,agency.root(),agency.id,sealed.root,verdict.classification).map_err(|_|InstitutionError::Replay)?;agency=next;root=root_of(&agency,&exec);
+     evidence.validate()?;
+     if claim.id!=case_.claim||claim.issuer!=agency.id||claim.prior_state_root!=root{return Err(InstitutionError::Replay)}
+     if case_.prior_state_root!=root||verdict.prior_state_root!=root||verdict.case_id!=case_.id||verdict.evidence!=case_.evidence||!case_.evidence.contains(&evidence.digest){return Err(InstitutionError::Replay)}
+     let sealed=AdjudicationRecord::seal(case_,verdict);
+     let (next,_)=agency_transition(&agency,agency.root(),agency.id,sealed.root,verdict.classification).map_err(|_|InstitutionError::Replay)?;
+     agency=next;
+     root=root_of(&agency,&exec);
     }
-    InstitutionalEvent::Executed{event,action,permit}=>{
+    InstitutionalEvent::Executed{event,action,permit,now}=>{
      event.validate().map_err(|_|InstitutionError::Replay)?;
      if action.state_root!=root||action.event!=event.id{return Err(InstitutionError::Replay)}
      let authority=Authority{actor:format!("agency:{}",agency.id.0),capability:Capability{name:"counter.increment".into(),scope:"counter".into()},expires_at:Some(agency.epoch+100),revoked:!matches!(agency.status,AgencyStatus::Active|AgencyStatus::Probation)};
-     let expected=issue(&authority,action,agency.epoch).map_err(|_|InstitutionError::Replay)?;if expected!=*permit{return Err(InstitutionError::Replay)}
-     nova_glasswing::authorize(permit,action,agency.epoch).map_err(|_|InstitutionError::Replay)?;
-     exec=state_transition(&exec,event).map_err(|_|InstitutionError::Replay)?.next;root=root_of(&agency,&exec);
+     let expected=issue(&authority,action,*now).map_err(|_|InstitutionError::Replay)?;
+     if expected!=*permit{return Err(InstitutionError::Replay)}
+     nova_glasswing::authorize(permit,action,*now).map_err(|_|InstitutionError::Replay)?;
+     exec=state_transition(&exec,event).map_err(|_|InstitutionError::Replay)?.next;
+     root=root_of(&agency,&exec);
     }
    }
+   if witness.next_root!=root{return Err(InstitutionError::Replay)}
   }
+  if root!=self.state.root{return Err(InstitutionError::Replay)}
   Ok(root)
  }
 }
