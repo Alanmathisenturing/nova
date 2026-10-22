@@ -12,3 +12,6 @@ nova-agency = { path = "../nova-agency" }
 nova-glasswing = { path = "../nova-glasswing" }
 nova-event-bus = { path = "../nova-event-bus" }
 nova-state = { path = "../nova-state" }
+
+nova-persistence = { path = "../nova-persistence" }
+nova-replay = { path = "../nova-replay" }
