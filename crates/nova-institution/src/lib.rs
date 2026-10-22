@@ -146,4 +146,13 @@ mod tests{
   std::fs::remove_file(path).unwrap();
  }
 
+ #[test]fn replay_rejects_tampered_witness(){
+  let mut r=InstitutionalRuntime::new(initial());
+  let e=evidence();let (case_,v)=verdict(r.state().root,&e,VerdictClass::Supported);
+  let claim=Claim{id:ClaimId(1),subject:"agency:7".into(),predicate:"qualified_for".into(),object:"counter.increment".into(),evidence:vec![e.digest],issuer:AgencyId(7),created_at:LogicalTime(1),prior_state_root:r.state().root};
+  r.adjudicate(e,claim,case_,v).unwrap();
+  r.witnesses[0].next_root=StateRoot([0xA5;32]);
+  assert_eq!(r.replay(),Err(InstitutionError::Replay));
+ }
+
 }
